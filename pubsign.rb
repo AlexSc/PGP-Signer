@@ -5,7 +5,6 @@ require 'cgi'
 require 'rubygems'
 require 'gpgme'
 require 'sinatra'
-require 'openpgp'
 require 'pony'
 require 'tmail'
 
@@ -61,31 +60,18 @@ get '/sign/:id' do
 	GPGME.verify(GPGME::Data.from_str(id), nil) do |output|
       if GPGME::gpgme_err_code(output.status) == GPGME::GPG_ERR_NO_ERROR
       	validkey = true
-         uid_raw = id.split($/)[3]
-         case uid_raw
-            # User IDs of the form: "name (comment) <email>"
-            when /^([^\(]+)\(([^\)]+)\)\s+<([^>]+)>$/
-               @name, @comment, @email = $1, $2, $3
-            # User IDs of the form: "name <email>"
-            when /^([^<]+)\s+<([^>]+)>$/
-               @name, @comment, @email = $1, nil, $2
-            # User IDs of the form: "name"
-            when /^([^<]+)$/
-               @name, @comment, @email = $1, nil, nil
-            # User IDs of the form: "<email>"
-            when /^<([^>]+)>$/
-               @name, @comment, @email = nil, nil, $2
-            else
-               @name, @comment, @email = nil
-           end
+         fpr = id.split($/)[3]
          ctx = GPGME::Ctx.new
-   		keys = ctx.keys(uid_raw)
+   		keys = ctx.keys(fpr)
          if keys.empty?
             break
          else
             havekey = true
-      	   keydata = GPGME.export(uid_raw, :armor => true)
+      	   keydata = GPGME.export(fpr, :armor => true)
             @keytext = keydata
+            uid = keys.first.uids.first
+            @name = uid.name
+            @email = uid.email
             ctx.delete_key keys.first
    		   break
          end
@@ -130,43 +116,56 @@ get '/sign/:id' do
    
    Pony.transport mail
    
-   'Your key has been signed and sent to ' + @email
+   erb :signed_key_sent
    
+end
+
+get '/importerror' do
+	erb :importerror
+end
+
+def rand_str(len)
+  Array.new(len/2) { rand(256) }.pack('C*').unpack('H*').first
 end
 
 post '/new' do
 	data = params[:public_key]
-   strFile = StringIO.new(data, 'r')
    
-   uid = ''
-   
-   msg = OpenPGP::Message.parse OpenPGP.dearmor(data)
-   msg.each do |packet|
-   	if packet.tag == 13
-      	uid = packet
-         break
-      end
-   end
-   
-   GPGME.import strFile
    ctx = GPGME::Ctx.new({:armor=>true})
-   keys = ctx.keys(uid.data)
+   ctx.import(GPGME::Data.from_str(data))
+   import_result = ctx.import_result
+   unless import_result.imports.first
+      $stderr.puts 'Failed to import the key'
+      $stderr.puts data
+   	redirect '/importerror'
+   	redirect '/importerror'
+   end
+   fpr = import_result.imports.first.fpr
+   keys = ctx.keys(fpr)
    if keys.empty?
-   	return 'Err... what?'
+   	$stderr.puts 'Failed to import the key'
+      $stderr.puts data
+   	redirect '/importerror'
    end
    ctx.edit_key(keys.first, method(:editfunc))
    
-   url = GPGME.clearsign(GPGME::Data.from_str uid.data, 
+   uid = keys.first.uids.first
+   
+   rnd_str = rand_str 80
+   unsigned_url = fpr + "\n" + rnd_str
+   
+   url = GPGME.clearsign(GPGME::Data.from_str unsigned_url, 
                     :armor=>true)
    url = CGI.escape Base64.encode64(url)
    
    @user_name = uid.name
+   @user_email = uid.email
    @sign_url = url
    
    email_plain = erb :confirm_email
    email_encrypted = GPGME.encrypt([keys.first], email_plain, :armor=>true, :sign=>true)
+   
    Pony.mail(:to=>uid.email, :from=>'signer@pgpsigner.com', :subject=>'Confirm PGP Key', :body=>email_encrypted)
    
-   'An encrypted email has been sent to ' + uid.email + ', decrypt it and click on the enclosed link to get your signed key'
-   
+   erb :mail_sent
 end
