@@ -148,7 +148,6 @@ post '/new' do
       $stderr.puts 'Failed to import the key'
       $stderr.puts data
    	redirect '/importerror'
-   	redirect '/importerror'
    end
    fpr = import_result.imports.first.fpr
    
