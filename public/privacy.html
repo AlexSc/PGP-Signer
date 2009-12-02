@@ -1,0 +1,28 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+	<title>How we procted your privacy</title>
+</head>
+
+We protect your privacy in a very simple way: We never ask for any private information.<br/>
+Your public key is just that, public.  You can share it with whomever you want without<br/>
+concern.<br/><br/>
+However, the Public PGP Key Signer treats your public key as private information.<br/>
+Your key is stored on our server only until you click on the confirmation link and<br/>
+receive your signed key.  Immediately afterwards the Public PGP Key Signer will delete<br/>
+your public key from it's internal keyring.  Once you have received your signed key<br/>
+we have no direct way of knowing who you are or what your email address is.<br/><br/>
+<i>For the more technically inclined</i><br/>
+The Public PGP Key Signer does keep a log of the public key fingerprints which it has<br/>
+signed, indirectly.  This is because the confirmation link you are sent is your fingerprint<br/>
+and some random characters signed by our private key.  Since we log which URLs have<br/>
+been hit we can retrieve these fingerprints.  However, unless you have uploaded your<br/>
+key somewhere else, e.g. to <a href="http://pgp.mit.edu">the MIT key server</a> we cannot use the fingerprint to find your key.<br/><br/>
+<i>I don't believe you!</i><br/>
+Well fine!  Check for yourself.  The full source code to the Public PGP Key Signer is at<br/>
+<a href="http://github.com/AlexSc/PGP-Signer">github</a>.  The only things we dont store on github are our public key (it changes too often<br/>
+as new people sign it) and our private key (for obvious reasons).
+
+</html>
+</body>
