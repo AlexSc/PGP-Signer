@@ -2,9 +2,8 @@ require 'stringio'
 require 'base64'
 require 'cgi'
 
-require 'gpgme'
-
 require 'rubygems'
+require 'gpgme'
 require 'sinatra'
 require 'openpgp'
 require 'pony'
@@ -55,9 +54,11 @@ end
 get '/sign/:id' do
 	havekey = false
    validkey = false
-	id = Base64.decode64(params[:id])
+   escaped_id = params[:id]
+   escaped_id.gsub! ' ', '+'
+	id = Base64.decode64(escaped_id)
    uid = ''
-	GPGME.verify(GPGME::Data.from_str id, nil) do |output|
+	GPGME.verify(GPGME::Data.from_str(id), nil) do |output|
       if GPGME::gpgme_err_code(output.status) == GPGME::GPG_ERR_NO_ERROR
       	validkey = true
          uid_raw = id.split($/)[3]
@@ -112,7 +113,7 @@ get '/sign/:id' do
    mail = TMail::Mail.new()
    
    mail.to = @email
-   mail.from = 'ps@test.com'
+   mail.from = 'signer@pgpsigner.com'
    mail.subject = 'Signed PGP Key'
    
    mail.content_type = 'multipart/signed; boundary="mimepart_4b15e3947b281_17ff596e84e136"; 
@@ -164,7 +165,7 @@ post '/new' do
    
    email_plain = erb :confirm_email
    email_encrypted = GPGME.encrypt([keys.first], email_plain, :armor=>true, :sign=>true)
-   Pony.mail(:to=>uid.email, :from=>'ps@test.com', :subject=>'Confirm PGP Key', :body=>email_encrypted)
+   Pony.mail(:to=>uid.email, :from=>'signer@pgpsigner.com', :subject=>'Confirm PGP Key', :body=>email_encrypted)
    
    'An encrypted email has been sent to ' + uid.email + ', decrypt it and click on the enclosed link to get your signed key'
    
