@@ -124,6 +124,16 @@ get '/importerror' do
 	erb :importerror
 end
 
+our_fpr = 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
+
+get '/thanks_for_signing' do
+	keydata = GPGME.export(our_fpr, :armor=>true)
+   File.open('public/public_service.asc', 'w') { |file|
+   	file << keydata
+   }
+	erb :thanks_for_signing
+end
+
 def rand_str(len)
   Array.new(len/2) { rand(256) }.pack('C*').unpack('H*').first
 end
@@ -141,6 +151,11 @@ post '/new' do
    	redirect '/importerror'
    end
    fpr = import_result.imports.first.fpr
+   
+   if fpr.downcase == our_fpr
+   	redirect '/thanks_for_signing'
+   end
+   
    keys = ctx.keys(fpr)
    if keys.empty?
    	$stderr.puts 'Failed to import the key'
