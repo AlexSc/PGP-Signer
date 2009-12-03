@@ -122,10 +122,6 @@ get '/sign/:id' do
    
 end
 
-get '/importerror' do
-	erb :importerror
-end
-
 our_fpr = 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
 
 get '/thanks_for_signing' do
@@ -149,7 +145,7 @@ post '/new' do
    unless import_result.imports.first
       $stderr.puts 'Failed to import the key'
       $stderr.puts data
-   	redirect '/importerror'
+   	redirect '/importerror.html'
    end
    fpr = import_result.imports.first.fpr
    
@@ -161,7 +157,7 @@ post '/new' do
    if keys.empty?
    	$stderr.puts 'Failed to import the key'
       $stderr.puts data
-   	redirect '/importerror'
+   	redirect '/importerror.html'
    end
    ctx.edit_key(keys.first, method(:editfunc))
    
