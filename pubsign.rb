@@ -12,17 +12,6 @@ set :static, true
 
 our_fpr = 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
 
-def save_our_key
-   keydata = GPGME.export(our_fpr, :armor=>true)
-   File.open('public/public_service.asc', 'w') { |file|
-   	file << keydata
-   }
-end
-
-configure :production do
-	save_our_key
-end
-
 def do_mail(options)
 	body = TMail::Mail.new
    body.body = options[:body] || ""
@@ -140,12 +129,15 @@ end
 our_fpr = 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
 
 get '/thanks_for_signing' do
-	save_our_key
 	erb :thanks_for_signing
 end
 
 def rand_str(len)
   Array.new(len/2) { rand(256) }.pack('C*').unpack('H*').first
+end
+
+get '/public_key' do
+   '<pre>' + GPGME.export(our_fpr, :armor=>true) + '</pre>'
 end
 
 post '/new' do
