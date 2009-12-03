@@ -10,6 +10,17 @@ require 'tmail'
 
 set :static, true
 
+def save_our_key
+   keydata = GPGME.export(our_fpr, :armor=>true)
+   File.open('public/public_service.asc', 'w') { |file|
+   	file << keydata
+   }
+end
+
+configure :production do
+	save_our_key
+end
+
 def do_mail(options)
 	body = TMail::Mail.new
    body.body = options[:body] || ""
@@ -127,10 +138,7 @@ end
 our_fpr = 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
 
 get '/thanks_for_signing' do
-	keydata = GPGME.export(our_fpr, :armor=>true)
-   File.open('public/public_service.asc', 'w') { |file|
-   	file << keydata
-   }
+	save_our_key
 	erb :thanks_for_signing
 end
 
