@@ -10,8 +10,6 @@ require 'tmail'
 
 set :static, true
 
-our_fpr = 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
-
 def do_mail(options)
    body = TMail::Mail.new
    body.body = options[:body] || ""
