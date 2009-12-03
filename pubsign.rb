@@ -10,6 +10,8 @@ require 'tmail'
 
 set :static, true
 
+our_fpr = 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
+
 def do_mail(options)
    body = TMail::Mail.new
    body.body = options[:body] || ""
@@ -41,7 +43,6 @@ def editfunc(hook, status, args, fd)
    end
 end
 
-
 get '/' do
    erb :index
 end
@@ -51,50 +52,37 @@ get '/new' do
 end
 
 get '/sign/:id' do
-   havekey = false
-   validkey = false
-   escaped_id = params[:id]
-   escaped_id.gsub! ' ', '+'
-   id = Base64.decode64(escaped_id)
-   uid = ''
-   GPGME.verify(GPGME::Data.from_str(id), nil) do |output|
-      if GPGME::gpgme_err_code(output.status) == GPGME::GPG_ERR_NO_ERROR
-         validkey = true
-         fpr = id.split($/)[3]
-         ctx = GPGME::Ctx.new
-         keys = ctx.keys(fpr)
-         if keys.empty?
-            break
-         else
-            havekey = true
-            keydata = GPGME.export(fpr, :armor => true)
-            @keytext = keydata
-            uid = keys.first.uids.first
-            @name = uid.name
-            @email = uid.email
-            ctx.delete_key keys.first
-            break
-         end
-      else
-         break
-      end
+   id = Base64.decode64(params[:id].gsub(' ', '+'))
+   ctx = GPGME::Ctx.new
+   begin
+      ctx.verify(GPGME::Data.from_str(id), nil)
+      signatures = ctx.verify_result.signatures
+      signatures.first.status
+   rescue
+      $stderr.puts 'Failed to verify'
+      redirect '/badsignurl.html'
    end
 
-   if !havekey
-      return "It looks like we don't have your key, maybe you've already had it signed?"
+   unless GPGME::gpgme_err_code(signatures.first.status) == GPGME::GPG_ERR_NO_ERROR
+      $stderr.puts 'bad sig'
+      redirect '/badsignurl.html'
    end
 
-   email_plain = erb :signed_key
-   email_body = do_mail(:body=>email_plain)
-   email_list = email_body.to_s.split($/)
-   real_mail = ''
-   email_list.each do |line|
-      line.strip!
-      line += "\r\n"
-      real_mail += line
+   unless signatures.first.fpr.downcase == our_fpr
+      $stderr.puts 'someone else signed this'
+      redirect '/badsignurl.html'
    end
 
-   signature = GPGME.detach_sign(GPGME::Data.from_str(real_mail.to_s), {:armor=>true})
+   fpr = id.split($/)[3]
+   keys = ctx.keys(fpr)
+   if keys.empty?
+      redirect '/nokey.html'
+   end
+   @keytext = GPGME.export(fpr, :armor => true)
+   uid = keys.first.uids.first
+   @name = uid.name
+   @email = uid.email
+   ctx.delete_key keys.first
 
    mail = TMail::Mail.new()
 
@@ -105,22 +93,27 @@ get '/sign/:id' do
    mail.content_type = 'multipart/signed; boundary="mimepart_4b15e3947b281_17ff596e84e136"; 
    micalg=pgp-sha1; protocol="application/pgp-signature";'
    mail.disposition = 'inline'
+
+   email_body = do_mail(:body=>(erb :signed_key))
    mail.parts.push email_body
 
    sig_attach = TMail::Mail.new
+   real_mail = ''
+   email_body.to_s.split($/).each do |line|
+      line.strip!
+      line += "\r\n"
+      real_mail += line
+   end
+   signature = GPGME.detach_sign(GPGME::Data.from_str(real_mail.to_s), {:armor=>true})
    sig_attach.body = signature
    sig_attach.content_type = 'application/pgp-signature'
    sig_attach.set_content_disposition 'inline', 'name'=>'sig.asc'
-
    mail.parts.push sig_attach
 
    Pony.transport mail
 
    erb :signed_key_sent
-
 end
-
-our_fpr = 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
 
 get '/thanks_for_signing' do
    erb :thanks_for_signing
@@ -153,27 +146,20 @@ post '/new' do
 
    keys = ctx.keys(fpr)
    if keys.empty?
-      $stderr.puts 'Failed to import the key'
+      $stderr.puts "Imported the key but can't find it, what?"
       $stderr.puts data
       redirect '/importerror.html'
    end
    ctx.edit_key(keys.first, method(:editfunc))
 
-   uid = keys.first.uids.first
-
-   rnd_str = rand_str 80
-   unsigned_url = fpr + "\n" + rnd_str
-
-   url = GPGME.clearsign(GPGME::Data.from_str unsigned_url, 
-                    :armor=>true)
+   url = GPGME.clearsign(GPGME::Data.from_str(fpr + "\n" + rand_str(80)), :armor=>true)
    url = CGI.escape Base64.encode64(url)
 
+	uid = keys.first.uids.first
    @user_name = uid.name
    @user_email = uid.email
    @sign_url = url
-
-   email_plain = erb :confirm_email
-   email_encrypted = GPGME.encrypt([keys.first], email_plain, :armor=>true, :sign=>true)
+   email_encrypted = GPGME.encrypt([keys.first], erb(:confirm_email), :armor=>true, :sign=>true)
 
    Pony.mail(:to=>uid.email, :from=>'signer@pgpsigner.com', :subject=>'Confirm PGP Key', :body=>email_encrypted)
 
