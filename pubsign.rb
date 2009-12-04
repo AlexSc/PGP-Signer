@@ -133,29 +133,34 @@ get '/public_key' do
    '<pre>' + GPGME.export(options.our_fpr, :armor=>true) + '</pre>'
 end
 
+def importKey(ctx, key)
+   ctx.import(GPGME::Data.from_str(key))
+   import_result = ctx.import_result
+   unless import_result.imports.first
+      return nil, nil
+   end
+   fpr = import_result.imports.first.fpr
+   keys = ctx.keys(fpr)
+   unless keys.first
+      return nil, nil
+   end
+   return keys, fpr
+end
+
 post '/new' do
    data = params[:public_key]
 
    ctx = GPGME::Ctx.new({:armor=>true})
-   ctx.import(GPGME::Data.from_str(data))
-   import_result = ctx.import_result
-   unless import_result.imports.first
-      $stderr.puts 'Failed to import the key'
-      $stderr.puts data
+   keys, fpr = importKey(ctx, data)
+
+   unless keys
       redirect '/importerror.html'
    end
-   fpr = import_result.imports.first.fpr
 
    if fpr.downcase == options.our_fpr
       redirect '/thanks_for_signing'
    end
 
-   keys = ctx.keys(fpr)
-   if keys.empty?
-      $stderr.puts "Imported the key but can't find it, what?"
-      $stderr.puts data
-      redirect '/importerror.html'
-   end
    ctx.edit_key(keys.first, method(:editfunc))
 
    url = GPGME.clearsign(GPGME::Data.from_str(fpr + "\n" + rand_str(80)), :armor=>true)
