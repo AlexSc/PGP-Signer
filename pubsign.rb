@@ -161,7 +161,7 @@ post '/new' do
    url = GPGME.clearsign(GPGME::Data.from_str(fpr + "\n" + rand_str(80)), :armor=>true)
    url = CGI.escape Base64.encode64(url)
 
-	uid = keys.first.uids.first
+   uid = keys.first.uids.first
    @user_name = uid.name
    @user_email = uid.email
    @sign_url = url
