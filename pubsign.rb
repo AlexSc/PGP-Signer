@@ -10,7 +10,13 @@ require 'tmail'
 
 set :static, true
 
-our_fpr = 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
+configure :production do
+   set :our_fpr, 'B1B24106DB3F0D7CD7814E3C6DFDB4FC99D24387'.downcase
+end
+
+configure :test, :development do
+   set :our_fpr, '1695901522B98B998278E01E845697D4E39D32D6'.downcase
+end
 
 def do_mail(options)
    body = TMail::Mail.new
@@ -68,7 +74,7 @@ get '/sign/:id' do
       redirect '/badsignurl.html'
    end
 
-   unless signatures.first.fpr.downcase == our_fpr
+   unless signatures.first.fpr.downcase == options.our_fpr
       $stderr.puts 'someone else signed this'
       redirect '/badsignurl.html'
    end
@@ -124,7 +130,7 @@ def rand_str(len)
 end
 
 get '/public_key' do
-   '<pre>' + GPGME.export(our_fpr, :armor=>true) + '</pre>'
+   '<pre>' + GPGME.export(options.our_fpr, :armor=>true) + '</pre>'
 end
 
 post '/new' do
@@ -140,7 +146,7 @@ post '/new' do
    end
    fpr = import_result.imports.first.fpr
 
-   if fpr.downcase == our_fpr
+   if fpr.downcase == options.our_fpr
       redirect '/thanks_for_signing'
    end
 
