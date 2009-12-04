@@ -26,6 +26,12 @@ helpers do
 
       body
    end
+
+   def show_error(url, log_items=[])
+      log_items = [log_items].flatten
+      log_items.each { |item| $stderr.puts item }
+      redirect url
+   end
 end
 
 $iter = 0
@@ -67,25 +73,18 @@ get '/sign/:id' do
       signatures = ctx.verify_result.signatures
       signatures.first.status
    rescue
-      $stderr.puts 'Failed to verify'
-      redirect '/badsignurl.html'
+      show_error('/badsignurl.html', 'Failed to verify')
    end
 
-   unless GPGME::gpgme_err_code(signatures.first.status) == GPGME::GPG_ERR_NO_ERROR
-      $stderr.puts 'bad sig'
-      redirect '/badsignurl.html'
-   end
+   show_error('/badsignurl.html', 'bad sig') unless GPGME::gpgme_err_code(signatures.first.status) == GPGME::GPG_ERR_NO_ERROR
 
-   unless signatures.first.fpr.downcase == options.our_fpr
-      $stderr.puts 'someone else signed this'
-      redirect '/badsignurl.html'
-   end
+   show_error('/badsignurl.html', 'Hello Mallory') unless signatures.first.fpr.downcase == options.our_fpr
 
    fpr = id.split($/)[3]
    keys = ctx.keys(fpr)
-   if keys.empty?
-      redirect '/nokey.html'
-   end
+
+   show_error('/nokey.html') unless keys.first
+
    @keytext = GPGME.export(fpr, :armor => true)
    uid = keys.first.uids.first
    @name = uid.name
@@ -155,9 +154,7 @@ post '/new' do
    ctx = GPGME::Ctx.new({:armor=>true})
    keys, fpr = importKey(ctx, data)
 
-   unless keys
-      redirect '/importerror.html'
-   end
+   show_error('/importerror.html') unless keys
 
    if fpr.downcase == options.our_fpr
       redirect '/thanks_for_signing'
