@@ -18,12 +18,14 @@ configure :test, :development do
    set :our_fpr, '1695901522B98B998278E01E845697D4E39D32D6'.downcase
 end
 
-def do_mail(options)
-   body = TMail::Mail.new
-   body.body = options[:body] || ""
-   body.content_type = options[:body_content_type] || "text/plain"
+helpers do
+   def do_mail(options)
+      body = TMail::Mail.new
+      body.body = options[:body] || ""
+      body.content_type = options[:body_content_type] || "text/plain"
 
-   body
+      body
+   end
 end
 
 $iter = 0
