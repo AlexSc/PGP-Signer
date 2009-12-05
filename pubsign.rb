@@ -89,7 +89,10 @@ get '/sign/:id' do
    uid = keys.first.uids.first
    @name = uid.name
    @email = uid.email
-   ctx.delete_key keys.first
+   # HACK
+   # Don't delete our key when running tests, it conflicts with the decryption
+   # context used by the test.
+   ctx.delete_key keys.first unless options.environment == :test
 
    mail = TMail::Mail.new()
 
