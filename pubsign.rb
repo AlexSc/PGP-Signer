@@ -48,7 +48,7 @@ def editfunc(hook, status, args, fd)
          $iter += 1
       elsif $iter == 1
          line = 'quit'
-         $iter = 0;
+         $iter = 0
       end
       io = IO.for_fd(fd)
       io.puts(line)
