@@ -178,3 +178,55 @@ post '/new' do
 
    erb :mail_sent
 end
+
+get '/spoof' do
+   erb :spoof
+end
+
+def valid_email?(email)
+begin
+   r = TMail::Address.parse(email)
+   return true
+rescue SyntaxError
+   return nil
+end
+end
+
+post '/spoof' do
+   ctx = GPGME::Ctx.new(:armor=>true, :keylist_mode=>GPGME::KEYLIST_MODE_SIGS)
+   keys, fpr = importKey ctx, params[:public_key]
+
+   show_error('/importerror.html') unless keys
+
+   wesigned = nil
+   keys.first.uids.first.signatures.each do |signature|
+      if options.our_fpr =~ /#{signature.keyid.downcase}$/
+         wesigned = true
+         break
+      end
+   end
+
+   show_error('/spoofneedsign.html') unless wesigned
+
+   begin
+      ctx.verify(GPGME::Data.from_str(params[:signed_email]), nil)
+      signatures = ctx.verify_result.signatures
+      signatures.first.status
+   rescue
+      show_error('/spoofbadsign.html', 'Failed to verify')
+   end
+
+   show_error('/spoofbadsign.html') unless GPGME::gpgme_err_code(signatures.first.status) == GPGME::GPG_ERR_NO_ERROR
+
+   show_error('/spoofwrongsign.html') unless signatures.first.fpr.downcase == fpr.downcase
+
+   email = params[:signed_email].split($/)[3]
+   email.strip!
+   show_error('/spoofbademail.html') unless valid_email? email and email['@']
+   @from_email = email
+   @to_email = keys.first.uids.first.email
+
+   Pony.mail(:to=>@to_email, :from=>@from_email, :subject=>'Example Spoof', :body=>erb(:spoofemail))
+
+   erb :spoofsent
+end

@@ -201,4 +201,83 @@ describe 'Key Signing' do
       end
       wesigned.should be_true
    end
-end   
+end
+
+describe 'Email Forgery' do
+   before :all do
+      gen_test_key
+   end
+
+   after :all do
+      clear_test_key
+   end
+
+   def app
+      Sinatra::Application
+   end
+
+   it 'Should fail with bad public key' do
+      post '/spoof', 'public_key'=>'fsdkljjdsa'
+      last_response.should be_redirect
+      last_response.location.should include 'error'
+   end
+
+   it 'Should fail with an unsigned public key' do
+      post '/spoof', 'public_key'=>IO.read('testdata/test_pk.asc')
+      last_response.should be_redirect
+      last_response.location.should include 'needsign'
+   end
+
+   def ensure_signed()
+      # First make sure our public key is signed
+      def Pony.transport(tmail)
+      end
+      post '/new', 'public_key'=>IO.read('testdata/test_pk.asc')
+
+      # Save out the public key
+      File.open('testdata/test_pk.asc', 'w') { |f| f.syswrite(GPGME.export('TestKey', :armor=>true)) }
+   end
+
+   it 'Should fail with an unsigned email' do
+      ensure_signed
+
+      post '/spoof', :public_key=>IO.read('testdata/test_pk.asc'), :signed_email=>'test_email@pgpsigner.com'
+      last_response.should be_redirect
+      last_response.location.should include 'badsign'
+   end
+
+   it 'Should fail if email was signed by different key' do
+      ensure_signed
+
+      sig = GPGME.sign('test_email@pgpsigner.com', :signers=>['PubTest'], :mode=>GPGME::SIG_MODE_CLEAR)
+      post '/spoof', :public_key=>IO.read('testdata/test_pk.asc'), :signed_email=>sig
+
+      last_response.should be_redirect
+      last_response.location.should include 'wrongsign'
+   end
+
+   it 'Should fail if email is invalid' do
+      ensure_signed
+
+      sig = GPGME.sign('*(@!()*&&)(', :signers=>['TestKey'], :mode=>GPGME::SIG_MODE_CLEAR)
+      post '/spoof', :public_key=>IO.read('testdata/test_pk.asc'), :signed_email=>sig
+
+      last_response.should be_redirect
+      last_response.location.should include 'bademail'
+   end
+
+it 'Should succeed if email is signed by our key' do
+      ensure_signed
+
+      $mailmessage = nil
+      def Pony.transport(tmail)
+         $mailmessage = tmail
+      end
+
+      sig = GPGME.sign('test_spoof@pgpsigner.com', :signers=>['TestKey'], :mode=>GPGME::SIG_MODE_CLEAR)
+      post '/spoof', :public_key=>IO.read('testdata/test_pk.asc'), :signed_email=>sig
+
+      $mailmessage.should_not be_nil
+      $mailmessage['from'].to_s.should include 'test_spoof@pgpsigner.com'
+   end
+end

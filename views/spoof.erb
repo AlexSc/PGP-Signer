@@ -1,0 +1,43 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+	<title>Fake Email Example</title>
+</head>
+
+This is a live example of how simple it is to fake the From: field of any email<br/>
+message.  You will need to enter your public key and a signed email address of<br/>
+your choosing.  This server will then send you an email which claims to be from<br/>
+the address you provided.  The method we use is very simple; almost anyone<br/>
+technically inclined could do this.<br/><br/>
+<i>Why do I need to provide my public key?</i><br/>
+We ask that you provide your public key so that 1) We may verify the signed<br/>
+email address, and 2) We send the email to the email address in the public key.<br/>
+We require that your public key have been <a href="/new">signed</a> by our service as proof that<br/>
+you own the corresponding email address.<br/><br/>
+<i>Why do I need to sign the email address?</i><br/>
+We ask that you sign the email address to prove that you have the corresponding<br/>
+private key to the public key which you are also submitting.  This ensures that<br/>
+it really is you requesting the email, not just some random person who entered<br/>
+your public key.<br/><br/>
+<i>Why all these hoops?</i><br/>
+Fundamentally this is a learning and advocacy tool to teach users a lesson about<br/>
+the security of standard email.  We require all these hoops to ensure that the<br/>
+only users who are sent an email with a falsified From: header from this server<br/>
+are those who very explicitly requested it.  We want this to be used as a tool<br/>
+for good, not as a platform for pranks or spamming.<br/><br/>
+
+Enter public key<br/>
+Enter your public key for signing.  You can retreive this by running <pre>gpg --export --armor &lt;youremail@isp.com&gt</pre>and then copying the output into this text box.<br/>
+<form method="post">
+   <textarea id="public_key" name="public_key" rows=20 cols=66></textarea><br/>
+   <br/>
+   Enter a signed email addres<br/>
+   You should only sign an email address, without any additonal text or newlines<br/>
+   You can do this by running <pre>gpg --clearsign --armor</pre>
+   entering an email addressing, hitting the return key, and then pressing<br/>
+   ctrl-d.<br/>
+   Copy/paste the output into this text box.<br/>
+   <textarea id="signed_email" name="signed_email" rows=10 cols=66></textarea><br/>
+   <input class="button" type="submit" value="Send Me Mail">
+</form>
